@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转盘抽奖组件</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            border: 1px solid #000;
+        }
+
+        button {
+            margin-top: 20px;
+        }
+
+        table {
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    <button id="drawBtn">抽奖</button>
+    <table>
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>结果</th>
+            </tr>
+        </thead>
+        <tbody id="historyTable">
+        </tbody>
+    </table>
+    <script>
+        // 在此处添加JavaScript代码
+	const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
+const drawBtn = document.getElementById('drawBtn');
+const historyTable = document.getElementById('historyTable');
+
+const prizes = [
+  { text: '20元微信立减金', prob: 0.10 },
+  { text: '88元微信立减金', prob: 0.05 },
+  { text: '京东e卡20元', prob: 0.10 },
+  { text: '京东e卡88元', prob: 0.05 },
+  { text: '住房意外险', prob: 0.20 },
+  { text: '腾讯视频月卡', prob: 0.05 },
+  { text: 'QQ音乐月卡', prob: 0.10 },
+  { text: '谢谢惠顾', prob: 0.35 },
+];
+
+let isDrawing = false;
+let angle = 0;
+
+function drawWheel() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = Math.min(canvas.width, canvas.height) / 2 - 20;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle-3*Math.PI/4-Math.PI/8 ); // 修改为加法运算
+
+  for (let i = 0; i < prizes.length; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, (2 * Math.PI / prizes.length) * i, (2 * Math.PI / prizes.length) * (i + 1));
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+
+    ctx.fillStyle = i % 2 === 0 ? '#f9c700' : '#feefc3';
+    ctx.fill();
+
+    ctx.save();
+    ctx.rotate((2 * Math.PI / prizes.length) * i + Math.PI / prizes.length);
+    ctx.fillStyle = '#000';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(prizes[i].text, radius / 2, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // 绘制指针
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY - 150);
+  ctx.lineTo(centerX - 5, centerY - 5);
+  ctx.lineTo(centerX + 5, centerY - 5);
+  ctx.closePath();
+  ctx.fillStyle = '#f00';
+  ctx.fill();
+}
+
+
+
+function pickPrize() {
+  const random = Math.random();
+  let sum = 0;
+
+  for (let i = 0; i < prizes.length; i++) {
+    sum += prizes[i].prob;
+    if (random <= sum) {
+      return i;
+    }
+  }
+
+  return prizes.length - 1;
+}
+
+function startDrawing() {
+  if (isDrawing) return;
+  isDrawing = true;
+  const targetPrizeIndex = pickPrize();
+  const targetAngle = (2 * Math.PI / prizes.length) * (targetPrizeIndex + 0.5) - Math.PI / 2 + (2 * Math.PI / prizes.length) / 2; // 修改为在正上方
+  const rounds = 5;
+  const totalAngle = targetAngle + 2 * Math.PI * rounds;
+
+  let start = null;
+  const duration = 3000;
+
+  function easeInOutCubic(t) {
+    return t < 0.5
+      ? 4 * t * t * t
+      : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+  }
+
+  function step(timestamp) {
+    if (!start) start = timestamp;
+    const elapsed = timestamp - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const easedProgress = easeInOutCubic(progress);
+
+    angle = -(totalAngle * easedProgress);
+    drawWheel();
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      isDrawing = false;
+      showResult(targetPrizeIndex);
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
+
+
+function showResult(prizeIndex) {
+  const result = prizes[prizeIndex].text;
+  const message = result === '谢谢惠顾' ? `很遗憾你未中奖` : `恭喜获得${result}一份`;
+
+  if (confirm(message)) {
+    addToHistory(result);
+  }
+}
+
+function addToHistory(result) {
+  const row = document.createElement('tr');
+  const dateCell = document.createElement('td');
+  const resultCell = document.createElement('td');
+
+  const date = new Date();
+  const dateString = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+
+  dateCell.textContent = dateString;
+  resultCell.textContent = result;
+
+  row.appendChild(dateCell);
+  row.appendChild(resultCell);
+  historyTable.appendChild(row);
+}
+
+drawBtn.addEventListener('click', startDrawing);
+drawWheel();
+
+    </script>
+</body>
+</html>
